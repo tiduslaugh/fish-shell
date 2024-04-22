@@ -139,6 +139,8 @@ pub struct WGetopter<'opts, 'args, 'argarray> {
     return_colon: bool,
     /// Prevents redundant initialization.
     initialized: bool,
+    /// If true, only accept verbatim long options--not prefixes.
+    pub strict_long_options: bool,
 }
 
 impl<'opts, 'args, 'argarray> WGetopter<'opts, 'args, 'argarray> {
@@ -160,6 +162,7 @@ impl<'opts, 'args, 'argarray> WGetopter<'opts, 'args, 'argarray> {
             last_nonopt: 0,
             return_colon: false,
             initialized: false,
+            strict_long_options: false,
         }
     }
 
@@ -524,8 +527,9 @@ impl<'opts, 'args, 'argarray> WGetopter<'opts, 'args, 'argarray> {
             let try_long =
                 // matches options like `--foo`
                 arg.char_at(0) == '-' && arg.char_at(1) == '-'
-                // matches options like `-f` if `f` is not a valid shortopt.
-                || !self.shortopts.as_char_slice().contains(&arg.char_at(1));
+                // matches options like `-f` if `f` is not a valid shortopt unless strict long
+                // options is set.
+                || (!self.strict_long_options && !self.shortopts.as_char_slice().contains(&arg.char_at(1)));
 
             if try_long {
                 let retval = self.handle_long_opt(longopt_index);

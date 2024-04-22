@@ -60,6 +60,7 @@ struct ArgParseCmdOpts<'args> {
     options: HashMap<char, OptionSpec<'args>>,
     long_to_short_flag: HashMap<WString, char>,
     exclusive_flag_sets: Vec<Vec<char>>,
+    strict_long_options: bool,
 }
 
 impl ArgParseCmdOpts<'_> {
@@ -71,7 +72,7 @@ impl ArgParseCmdOpts<'_> {
     }
 }
 
-const SHORT_OPTIONS: &wstr = L!("+:hn:six:N:X:");
+const SHORT_OPTIONS: &wstr = L!("+:hn:six:N:X:S");
 const LONG_OPTIONS: &[WOption] = &[
     wopt(L!("stop-nonopt"), ArgType::NoArgument, 's'),
     wopt(L!("ignore-unknown"), ArgType::NoArgument, 'i'),
@@ -80,6 +81,7 @@ const LONG_OPTIONS: &[WOption] = &[
     wopt(L!("help"), ArgType::NoArgument, 'h'),
     wopt(L!("min-args"), ArgType::RequiredArgument, 'N'),
     wopt(L!("max-args"), ArgType::RequiredArgument, 'X'),
+    wopt(L!("strict-long"), ArgType::NoArgument, 'S'),
 ];
 
 // Check if any pair of mutually exclusive options was seen. Note that since every option must have
@@ -495,6 +497,7 @@ fn parse_cmd_opts<'args>(
             // definitions we'll parse these strings into a more useful data structure.
             'x' => opts.raw_exclusive_flags.push(w.woptarg.unwrap()),
             'h' => opts.print_help = true,
+            'S' => opts.strict_long_options = true,
             'N' => {
                 opts.min_args = {
                     let x = fish_wcstol(w.woptarg.unwrap()).unwrap_or(-1);
@@ -755,6 +758,7 @@ fn argparse_parse_flags<'args>(
     populate_option_strings(opts, &mut short_options, &mut long_options);
 
     let mut w = WGetopter::new(&short_options, &long_options, args);
+    w.strict_long_options = opts.strict_long_options;
     while let Some((opt, longopt_idx)) = w.next_opt_indexed() {
         let is_long_flag = longopt_idx.is_some();
         let retval = match opt {
