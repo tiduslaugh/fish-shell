@@ -257,7 +257,7 @@ fn command_is_valid(
 
     // Abbreviations
     if !is_valid && abbreviation_ok {
-        is_valid = with_abbrs(|set| set.has_match(cmd, abbrs::Position::Command))
+        is_valid = with_abbrs(|set| set.has_match(cmd, abbrs::Position::Command, L!("")))
     };
 
     // Regular commands
@@ -1235,7 +1235,7 @@ impl<'s> Highlighter<'s> {
                             };
                         }
                     }
-                    RedirectionMode::input => {
+                    RedirectionMode::input | RedirectionMode::try_input => {
                         // Input redirections must have a readable non-directory.
                         target_is_valid = waccess(&target_path, R_OK) == 0
                             && match wstat(&target_path) {

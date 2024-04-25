@@ -4569,19 +4569,38 @@ pub fn reader_expand_abbreviation_at_cursor(
 ) -> Option<abbrs::Replacement> {
     // Find the token containing the cursor. Usually users edit from the end, so walk backwards.
     let tokens = extract_tokens(cmdline);
-    let token = tokens
-        .into_iter()
-        .rev()
-        .find(|token| token.range.contains_inclusive(cursor_pos))?;
+    let mut token: Option<_> = None;
+    let mut cmdtok: Option<_> = None;
+
+    for t in tokens.into_iter().rev() {
+        let range = t.range;
+        let is_cmd = t.is_cmd;
+        if t.range.contains_inclusive(cursor_pos) {
+            token = Some(t);
+        }
+        // The command is at or *before* the token the cursor is on,
+        // and once we have a command we can stop.
+        if token.is_some() && is_cmd {
+            cmdtok = Some(range);
+            break;
+        }
+    }
+    let token = token?;
     let range = token.range;
     let position = if token.is_cmd {
         abbrs::Position::Command
     } else {
         abbrs::Position::Anywhere
     };
+    // If the token itself is the command, we have no command to pass.
+    let cmd = if !token.is_cmd {
+        cmdtok.map(|t| &cmdline[Range::<usize>::from(t)])
+    } else {
+        None
+    };
 
     let token_str = &cmdline[Range::<usize>::from(range)];
-    let replacers = abbrs_match(token_str, position);
+    let replacers = abbrs_match(token_str, position, cmd.unwrap_or(L!("")));
     for replacer in replacers {
         if let Some(replacement) = expand_replacer(range, token_str, &replacer, parser) {
             return Some(replacement);
@@ -5043,7 +5062,7 @@ fn try_expand_wildcard(
 
 /// Test if the specified character in the specified string is backslashed. pos may be at the end of
 /// the string, which indicates if there is a trailing backslash.
-fn is_backslashed(s: &wstr, pos: usize) -> bool {
+pub(crate) fn is_backslashed(s: &wstr, pos: usize) -> bool {
     // note pos == str.size() is OK.
     if pos > s.len() {
         return false;
@@ -5093,7 +5112,7 @@ fn replace_line_at_cursor(
     text[..start].to_owned() + replacement + &text[end..]
 }
 
-fn get_quote(cmd_str: &wstr, len: usize) -> Option<char> {
+pub(crate) fn get_quote(cmd_str: &wstr, len: usize) -> Option<char> {
     let cmd = cmd_str.as_char_slice();
     let mut i = 0;
     while i < cmd.len() {
